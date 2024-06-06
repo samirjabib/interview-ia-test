@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
-
-// types.ts
-export interface ProductData {
-  product_id: string;
-  product_name: string;
-  product_description: string;
-  vendor_name: string;
-  vendor_email: string;
-}
+import { cleanData } from "../lib/utils";
+import { ProductData } from "../lib/types";
 
 export async function GET() {
   const csv = await fetch(
@@ -40,28 +33,23 @@ export async function GET() {
 
   const cleanedData = cleanData(googleSheetData);
 
-  console.log(cleanedData, "Cleaned data");
+  const standardizedData = await fetch("http://localhost:3000/api/nlu", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(cleanedData),
+  }).then((res) => res.json());
 
-  return NextResponse.json(cleanedData);
+  const trainingModel = await fetch("http://localhost:3000/api/training", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(standardizedData),
+  }).then((res) => res.json());
+
+  console.log(trainingModel);
+
+  return NextResponse.json(standardizedData);
 }
-
-const cleanData = (data: ProductData[]) => {
-  // Remove duplicates based on product_id
-  const uniqueData = data.filter(
-    (item, index, self) =>
-      index === self.findIndex((t) => t.product_id === item.product_id)
-  );
-
-  // Handle missing values in all fields
-  const cleanedData = uniqueData.filter((item) => {
-    return (
-      item.product_id.trim() !== "" &&
-      item.product_name.trim() !== "" &&
-      item.product_description.trim() !== "" &&
-      item.vendor_name.trim() !== "" &&
-      item.vendor_email.trim() !== ""
-    );
-  });
-
-  return cleanedData;
-};
